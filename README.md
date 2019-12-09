@@ -36,10 +36,6 @@ python baselines.py --dataset university --method threshold --viz --save_frame 1
 
 ## Convolutional Neural Network
 
-DeepLab_V3 CNN: [Rethinking Atrous Convolution for Semantic Image Segmentation](https://arxiv.org/pdf/1706.05587.pdf).
-
-[Original implementation](https://sthalles.github.io/deep_segmentation_network/).
-
 The first step is to convert the image files and label files into H5 files for use in training.
 If the "--use_history" flag is included, the input channels will have 3 components:
 (i) infrared image intensity
@@ -77,4 +73,27 @@ python test.py --dataset beach --use_history --detection_threshold 0.99 --viz --
 
 ## Examples
 
+*University* sample image
+
+![screenshot1](results/original_98.png?raw=true)
+
+*University* detection results
+
+![screenshot2](results/detected_cnn_98.png?raw=true)
+
+*Beach* sample image
+
+![screenshot3](results/original_130.png?raw=true)
+
+*Beach* detection results
+
+![screenshot4](results/detected_cnn_130.png?raw=true)
+
+*Shore* sample image
+
+![screenshot5](results/original_500.png?raw=true)
+
+*Shore* detection results
+
+![screenshot6](results/detected_cnn_500.png?raw=true)
 
