@@ -45,13 +45,13 @@ Before doing this, make sure to run "baselines.py" with "--method backSub" to sa
 Otherwise, only the first component is used. 
 
 ```
-python process_record.py --dataset beach --use_history
+python process_record.py --dataset university
 ```
 
 Train the network using "train.py" (150 epochs). The trained model will be saved in "dataset/myfolder/model.ckpt".
 
 ```
-python train.py --dataset beach --use_history
+python train.py --dataset university
 ```
 
 Test the network and measure the accuracy. The detection threshold (a number between 0 and 1) controls 
@@ -59,7 +59,7 @@ the confidence level above which a pixel will be considered a positive detection
 Result images will be displayed if the "--viz" flag is used, otherwise only the accuracy is computed.
 
 ```
-python test.py --dataset beach --use_history --detection_threshold 0.99 --viz --save_frame 100
+python test.py --dataset university --detection_threshold 0.99 --viz
 ```
 
 ## Dependencies
