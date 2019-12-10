@@ -1,14 +1,8 @@
 # CNN-based Person Detection using Infrared Images for Night-time Intrusion Warning Systems
 
-Supplemental material (source code and data) for the **Sensors** journal submission *CNN-based Person Detection using Infrared Images for Night-time Intrusion Warning Systems*.
+Supplemental material for the **Sensors** journal submission *CNN-based Person Detection using Infrared Images for Night-time Intrusion Warning Systems*.
 
 ## Data preparation
-
-To download the *university* dataset, run the following script:
-
-```
-./download_data.sh
-```
 
 To prepare a new dataset, first create a subfolder under the "dataset" folder (e.g. dataset/myfolder).
 Copy the image files to this subfolder using the naming scheme 1.png 2.png 3.png ... etc.
