@@ -5,7 +5,8 @@ The paper can be accessed through the following [link](https://www.mdpi.com/1424
 If you find this code or data useful, please cite our paper as follows:
 
 ```
-Park, J.; Chen, J.; Cho, Y.K.; Kang, D.Y.; Son, B.J. CNN-Based Person Detection Using Infrared Images for Night-Time Intrusion Warning Systems. Sensors 2020, 20, 34.
+Park, J.; Chen, J.; Cho, Y.K.; Kang, D.Y.; Son, B.J. CNN-Based Person Detection Using
+Infrared Images for Night-Time Intrusion Warning Systems. Sensors 2020, 20, 34.
 ```
 
 ```
@@ -19,7 +20,6 @@ NUMBER = {1},
 ARTICLE-NUMBER = {34},
 URL = {https://www.mdpi.com/1424-8220/20/1/34},
 ISSN = {1424-8220},
-ABSTRACT = {Night-time surveillance is important for safety and security purposes. For this reason, several studies have attempted to automatically detect people intruding into restricted areas by using i$
 DOI = {10.3390/s20010034}
 }
 ```
