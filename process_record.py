@@ -1,5 +1,5 @@
 import numpy
-import scipy.misc
+from PIL import Image
 import h5py
 import glob
 import sys
@@ -34,7 +34,7 @@ test_count = 0
 previous_img = None
 
 for i in range(1,num_samples+1):
-	image_np = scipy.misc.imread('dataset/%s/%d.png'%(dataset,i),mode='RGB')
+	image_np = numpy.array(Image.open('dataset/%s/%d.png'%(dataset,i)))
 	image_np = image_np[ybound:ybound+imscale,xbound:xbound+imscale].mean(axis=2)
 	if previous_img is None:
 		diff_img = numpy.zeros(image_np.shape, dtype=numpy.uint8)
@@ -42,7 +42,7 @@ for i in range(1,num_samples+1):
 	else:
 		diff_img = ((image_np - previous_img)/2 + 128).astype(numpy.uint8)
 		if use_history:
-			backSub_img = scipy.misc.imread('dataset/%s/backSub/%d.png'%(dataset,i),mode='RGB').mean(axis=2)
+			backSub_img = numpy.array(Image.open('dataset/%s/backSub/%d.png'%(dataset,i))).mean(axis=2)
 	previous_img = image_np
 	image_h = image_np.shape[0]
 	image_w = image_np.shape[1]
@@ -50,13 +50,13 @@ for i in range(1,num_samples+1):
 		image_np = numpy.dstack((image_np, diff_img, backSub_img)).astype(numpy.uint8)
 	else:
 		image_np = numpy.dstack((image_np, image_np, image_np)).astype(numpy.uint8)
-	annotation = scipy.misc.imread('dataset/%s/label%d.png'%(dataset,i), mode='L')
+	annotation = numpy.array(Image.open('dataset/%s/label%d.png'%(dataset,i)))
 	for p in numpy.array(numpy.nonzero(annotation)).T:
 		pos_idx.add(tuple(p))
 	annotation = annotation[ybound:ybound+imscale,xbound:xbound+imscale]
 	if imscale!=imsize:
-		image_np = scipy.misc.imresize(image_np, size=(imsize, imsize), interp='bilinear')
-		annotation = scipy.misc.imresize(annotation, size=(imsize, imsize), interp='bilinear')
+		image_np = numpy.array(Image.fromarray(image_np).resize((imsize, imsize), resample=Image.BILINEAR))
+		annotation = numpy.array(Image.fromarray(annotation).resize((imsize, imsize), resample=Image.BILINEAR))
 	annotation = numpy.array(annotation > 0, dtype=numpy.uint8)
 	print(i,image_np.shape,image_np.dtype)
 	if i-1 in train_samples:

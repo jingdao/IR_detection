@@ -13,6 +13,7 @@ import time
 import sys
 import sklearn.metrics
 import glob
+from PIL import Image
 
 parser = argparse.ArgumentParser()
 envarg = parser.add_argument_group('Training params')
@@ -108,7 +109,7 @@ comp_time = []
 previous_img = None
 for image_idx in range(1,num_samples+1):
 	t1 = time.time()
-	original_image = scipy.misc.imread('dataset/%s/%d.png'%(args.dataset,image_idx),mode='RGB')
+	original_image = numpy.array(Image.open('dataset/%s/%d.png'%(args.dataset,image_idx)))
 	image_np = original_image[ybound:ybound+imscale,xbound:xbound+imscale].mean(axis=2)
 	if args.use_history:
 		if previous_img is None:
@@ -116,7 +117,7 @@ for image_idx in range(1,num_samples+1):
 			backSub_img = numpy.zeros(image_np.shape, dtype=numpy.uint8)
 		else:
 			diff_img = ((image_np - previous_img)/2 + 128).astype(numpy.uint8)
-			backSub_img = scipy.misc.imread('dataset/%s/backSub/%d.png'%(args.dataset,image_idx),mode='RGB').mean(axis=2)
+			backSub_img = numpy.array(Image.open('dataset/%s/backSub/%d.png'%(args.dataset,image_idx))).mean(axis=2)
 		previous_img = image_np
 	if image_idx < test_idx:
 		continue
@@ -124,12 +125,12 @@ for image_idx in range(1,num_samples+1):
 		image_np = numpy.dstack((image_np, diff_img, backSub_img)).astype(numpy.uint8)
 	else:
 		image_np = numpy.dstack((image_np, image_np, image_np)).astype(numpy.uint8)
-	original_annotation = scipy.misc.imread('dataset/%s/label%d.png'%(args.dataset,image_idx), mode='L')
+	original_annotation = numpy.array(Image.open('dataset/%s/label%d.png'%(args.dataset,image_idx)))
 	annotation = original_annotation[ybound:ybound+imscale,xbound:xbound+imscale]
 	annotation = numpy.array(annotation > 0, dtype=numpy.uint8)
 	if imsize!=imscale:
-		input_images[:] = scipy.misc.imresize(image_np, size=(imsize, imsize), interp='bilinear')
-		input_labels[:] = scipy.misc.imresize(annotation, size=(imsize, imsize), interp='bilinear')
+		input_images[:] = numpy.array(Image.fromarray(image_np).resize((imsize, imsize), resample=Image.BILINEAR))
+		input_labels[:] = numpy.array(Image.fromarray(annotation).resize((imsize, imsize), resample=Image.BILINEAR))
 	else:
 		input_images[:] = image_np
 		input_labels[:] = annotation
@@ -142,7 +143,7 @@ for image_idx in range(1,num_samples+1):
 #	print('Loss %.2f(%.2f+%.2f) tp:%d fp:%d fn:%d prc:%.2f rcl:%.2f'%(ls,pl,nl,vtp,vfp,vfn,prc,rcl))
 	predicted_softmax = scipy.special.softmax(result[0,:,:,:],axis=-1)[:,:,1]
 	if imsize!=imscale:
-		predicted_softmax = scipy.misc.imresize(predicted_softmax, size=(imscale, imscale), interp='bilinear') / 255.0
+		predicted_softmax = numpy.array(Image.fromarray(predicted_softmax, mode='F').resize((imscale, imscale), resample=Image.BILINEAR))
 	ap_dt.extend(predicted_softmax.flatten())
 	ap_gt.extend(annotation.flatten())
 	predicted = predicted_softmax > detection_threshold
@@ -222,12 +223,12 @@ for image_idx in range(1,num_samples+1):
 		dt_viz[y1:y2, x2, :] = [255,255,0]
 
 	comp_time.append(t2 - t1)
-#	print('%d/%d images prc %.2f/%.2f rcl %.2f/%.2f (%.2fs)'%(image_idx,num_samples,prc,obj_prc,rcl,obj_rcl,t2-t1))
+	print('%d/%d images prc %.2f/%.2f rcl %.2f/%.2f (%.2fs)'%(image_idx,num_samples,prc,obj_prc,rcl,obj_rcl,t2-t1))
 
 	if image_idx == args.save_frame:
-		scipy.misc.imsave('results/original_%d.png'%args.save_frame, image_np[:,:,0].astype(numpy.uint8))
-		scipy.misc.imsave('results/detected_%s_%d.png'%('history' if args.use_history else 'cnn', args.save_frame), dt_viz)
-		scipy.misc.imsave('results/ground_truth_%d.png'%args.save_frame, gt_viz)
+		Image.fromarray(image_np[:,:,0].astype(numpy.uint8), mode='L').save('results/original_%d.png'%args.save_frame)
+		Image.fromarray(dt_viz, mode='RGB').save('results/detected_%s_%d.png'%('history' if args.use_history else 'cnn', args.save_frame))
+		Image.fromarray(gt_viz, mode='RGB').save('results/ground_truth_%d.png'%args.save_frame)
 		print('save_frame',args.save_frame)
 		sys.exit(1)
 	if viz:

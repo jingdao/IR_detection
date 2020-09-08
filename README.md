@@ -91,7 +91,9 @@ python test.py --dataset university --detection_threshold 0.99 --viz
 3. matplotlib
 4. h5py
 5. tensorflow
-6. [Deeplab V3](https://github.com/sthalles/deeplab_v3)
+6. PIL
+7. scikit-learn
+8. [Deeplab V3](https://github.com/sthalles/deeplab_v3)
 
 ## Examples
 

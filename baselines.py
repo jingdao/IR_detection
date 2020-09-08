@@ -1,12 +1,13 @@
 import matplotlib.pyplot as plt
 import numpy
-import scipy.misc
+from PIL import Image
 import sys
 import cv2
 import time
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture
 import glob
+import os
 
 method = 'threshold'
 #method = 'threshold_adp'
@@ -44,13 +45,14 @@ while True:
 	if method!='backSub' and image_id < test_idx:
 		image_id += 1
 		continue
-	try:
-		I = scipy.misc.imread('dataset/%s/%d.png' % (dataset,image_id))
+	image_filename = 'dataset/%s/%d.png' % (dataset,image_id)
+	if os.path.exists(image_filename):
+		I = numpy.array(Image.open(image_filename))
 		if len(I.shape)>2:
 			I = numpy.mean(I, axis=2)
-	except IOError:
+	else:
 		break
-	gt = scipy.misc.imread('dataset/%s/label%d.png' % (dataset, image_id))
+	gt = numpy.array(Image.open('dataset/%s/label%d.png'%(dataset,image_id)))
 	gt = gt > 0
 	dt = numpy.zeros(I.shape, dtype=bool)
 	image_np = I[ybound:ybound+imscale, xbound:xbound+imscale]
@@ -71,7 +73,7 @@ while True:
 		if dataset=='combined' and image_id in [97, 225, 249]:
 			backSub = cv2.createBackgroundSubtractorMOG2()
 		mask = backSub.apply(image_np)
-		scipy.misc.imsave('dataset/%s/backSub/%d.png'%(dataset,image_id), mask.astype(numpy.uint8))
+		Image.fromarray(mask.astype(numpy.uint8), mode='L').save('dataset/%s/backSub/%d.png'%(dataset,image_id))
 	elif method=='kmeans':
 		window_size = 15 if dataset=='beach' or dataset=='shore' else 100
 		margin = 10 if dataset=='beach' or dataset=='shore' else 100
@@ -227,9 +229,9 @@ while True:
 #	print('Image #%d Precision:%.2f/%.2f Recall:%.2f/%.2f (%.2fs)'%(image_id, prc,obj_prc,rcl,obj_rcl, t2-t1))
 
 	if image_id == save_frame:
-		scipy.misc.imsave('results/original_%d.png'%save_frame, image_np.astype(numpy.uint8))
-		scipy.misc.imsave('results/detected_%s_%d.png'%(method,save_frame), dt_viz)
-		scipy.misc.imsave('results/ground_truth_%d.png'%save_frame, gt_viz)
+		Image.fromarray(image_np.astype(numpy.uint8), mode='L').save('results/original_%d.png'%save_frame)
+		Image.fromarray(dt_viz, mode='RGB').save('results/detected_%s_%d.png'%(method, save_frame))
+		Image.fromarray(gt_viz, mode='RGB').save('results/ground_truth_%d.png'%save_frame)
 		print('save_frame',save_frame)
 		sys.exit(1)
 	if viz:

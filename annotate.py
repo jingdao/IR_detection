@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy
-import scipy.misc
+from PIL import Image
 from sklearn.cluster import KMeans
 import sys
+import os
 
 dataset = 'beach'
 margin = 10
@@ -18,13 +19,14 @@ fig = plt.figure(figsize=(20,30))
 
 def next_img():
 	global image_np, image_display, labels, img_id, segment_id
-	try:
-		image_np = scipy.misc.imread('dataset/%s/%d.png'%(dataset,img_id))
-	except IOError:
+	image_filename = 'dataset/%s/%d.png'%(dataset,img_id)
+	if os.path.exists(image_filename):
+		image_np = numpy.array(Image.open(image_filename))
+	else:
 		sys.exit(0)
 	image_display = image_np.copy()
 	image_np = numpy.mean(image_np, axis=2)
-	#print(image_np.shape, image_display.shape)
+#	print(image_np.shape, image_display.shape)
 	labels = numpy.zeros(image_np.shape, dtype=int)
 	segment_id=0
 	plt.imshow(image_display)
@@ -35,7 +37,7 @@ def next_img():
 def onkey(event):
 	if event.key==' ':
 		global img_id
-		scipy.misc.imsave('dataset/%s/label%d.png'%(dataset,img_id), labels)
+		Image.fromarray(labels, mode='L').save('dataset/%s/label%d.png'%(dataset,img_id))
 		img_id += 1
 		next_img()
 	elif event.key=='r':
