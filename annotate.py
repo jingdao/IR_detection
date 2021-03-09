@@ -36,8 +36,10 @@ def next_img():
 
 def onkey(event):
 	if event.key==' ':
-		global img_id
-		Image.fromarray(labels, mode='L').save('dataset/%s/label%d.png'%(dataset,img_id))
+		global img_id, labels
+		labels = (labels>0) * 255
+		print(labels.dtype, set(labels.flatten()))
+		Image.fromarray(labels.astype(numpy.uint8), mode='L').save('dataset/%s/label%d.png'%(dataset,img_id))
 		img_id += 1
 		next_img()
 	elif event.key=='r':
