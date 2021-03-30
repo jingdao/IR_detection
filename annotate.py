@@ -7,13 +7,18 @@ import os
 
 dataset = 'beach'
 margin = 10
+use_rgb = True
+img_id=1
+prelabel = None
 for i in range(len(sys.argv)-1):
 	if sys.argv[i]=='--dataset':
 		dataset = sys.argv[i+1]
 	elif sys.argv[i]=='--margin':
 		margin = int(sys.argv[i+1])
-
-img_id=1
+	elif sys.argv[i]=='--id':
+		img_id = int(sys.argv[i+1])
+	elif sys.argv[i]=='--prelabel':
+		prelabel = numpy.array(Image.open(sys.argv[i+1])) > 0
 #fig = plt.figure()
 fig = plt.figure(figsize=(20,30))
 
@@ -25,10 +30,16 @@ def next_img():
 	else:
 		sys.exit(0)
 	image_display = image_np.copy()
-	image_np = numpy.mean(image_np, axis=2)
+	if not use_rgb:
+		image_np = numpy.mean(image_np, axis=2)
 #	print(image_np.shape, image_display.shape)
-	labels = numpy.zeros(image_np.shape, dtype=int)
-	segment_id=0
+	if prelabel is None:
+		labels = numpy.zeros((image_np.shape[0], image_np.shape[1]), dtype=int)
+		segment_id=0
+	else:
+		labels = prelabel.astype(int)
+		image_display[labels>0] = [255,0,0]
+		segment_id=1
 	plt.imshow(image_display)
 	print('Image #%d Segment #%d'%(img_id, segment_id))
 	plt.title('Image #%d Segment #%d'%(img_id, segment_id))
@@ -44,6 +55,21 @@ def onkey(event):
 		next_img()
 	elif event.key=='r':
 		next_img()
+	elif event.key=='u':
+		undo()
+
+def undo():
+	global segment_id
+	if segment_id==0:
+		return
+	previous_mask = labels==segment_id
+	labels[previous_mask] = 0
+	image_display[previous_mask] = image_np[previous_mask]
+	segment_id -= 1
+	plt.clf()
+	plt.imshow(image_display)
+	print('Undo segment #%d' % (segment_id))
+	fig.canvas.draw()
 
 def onclick(event):
 	global segment_id
@@ -53,11 +79,16 @@ def onclick(event):
 	yl = max(0,y-margin)
 	yr = min(image_np.shape[0],y+margin)
 	cropped = image_np[yl:yr, xl:xr]
-	kmeans = KMeans(n_clusters=2).fit(cropped.reshape(-1,1))
-	print('%.2f (%d) %.2f (%d)'%(kmeans.cluster_centers_[0], numpy.sum(kmeans.labels_==0), kmeans.cluster_centers_[1], numpy.sum(kmeans.labels_==1)))
-	target_label = numpy.argmax(kmeans.cluster_centers_)
+	if use_rgb:
+		kmeans = KMeans(n_clusters=2).fit(cropped.reshape(-1,3))
+		print('%.2f (%d) %.2f (%d)'%(kmeans.cluster_centers_[0][0], numpy.sum(kmeans.labels_==0), kmeans.cluster_centers_[1][0], numpy.sum(kmeans.labels_==1)))
+		target_label = numpy.argmin(kmeans.cluster_centers_.mean(axis=1))
+	else:
+		kmeans = KMeans(n_clusters=2).fit(cropped.reshape(-1,1))
+		print('%.2f (%d) %.2f (%d)'%(kmeans.cluster_centers_[0], numpy.sum(kmeans.labels_==0), kmeans.cluster_centers_[1], numpy.sum(kmeans.labels_==1)))
+		target_label = numpy.argmax(kmeans.cluster_centers_)
 #	target_label = kmeans.labels_.reshape(cropped.shape)[y-yl, x-xl]
-	mask = kmeans.labels_.reshape(cropped.shape)==target_label
+	mask = kmeans.labels_.reshape(cropped.shape[0], cropped.shape[1])==target_label
 	ym, xm = numpy.nonzero(mask)
 	ym += yl
 	xm += xl
