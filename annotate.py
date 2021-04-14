@@ -10,6 +10,8 @@ margin = 10
 use_rgb = True
 img_id=1
 prelabel = None
+mode = 'light'
+print('Light mode')
 for i in range(len(sys.argv)-1):
 	if sys.argv[i]=='--dataset':
 		dataset = sys.argv[i+1]
@@ -57,6 +59,17 @@ def onkey(event):
 		next_img()
 	elif event.key=='u':
 		undo()
+	elif event.key=='l':
+		global mode
+		if mode=='light':
+			mode = 'dark'
+			print('Dark mode')
+		elif mode=='dark':
+			mode = 'light'
+			print('Light mode')
+		plt.clf()
+		plt.imshow(image_display)
+		fig.canvas.draw()
 
 def undo():
 	global segment_id
@@ -82,11 +95,17 @@ def onclick(event):
 	if use_rgb:
 		kmeans = KMeans(n_clusters=2).fit(cropped.reshape(-1,3))
 		print('%.2f (%d) %.2f (%d)'%(kmeans.cluster_centers_[0][0], numpy.sum(kmeans.labels_==0), kmeans.cluster_centers_[1][0], numpy.sum(kmeans.labels_==1)))
-		target_label = numpy.argmin(kmeans.cluster_centers_.mean(axis=1))
+		if mode=='light':
+			target_label = numpy.argmax(kmeans.cluster_centers_.mean(axis=1))
+		elif mode=='dark':
+			target_label = numpy.argmin(kmeans.cluster_centers_.mean(axis=1))
 	else:
 		kmeans = KMeans(n_clusters=2).fit(cropped.reshape(-1,1))
 		print('%.2f (%d) %.2f (%d)'%(kmeans.cluster_centers_[0], numpy.sum(kmeans.labels_==0), kmeans.cluster_centers_[1], numpy.sum(kmeans.labels_==1)))
-		target_label = numpy.argmax(kmeans.cluster_centers_)
+		if mode=='light':
+			target_label = numpy.argmax(kmeans.cluster_centers_)
+		elif mode=='dark':
+			target_label = numpy.argmin(kmeans.cluster_centers_)
 #	target_label = kmeans.labels_.reshape(cropped.shape)[y-yl, x-xl]
 	mask = kmeans.labels_.reshape(cropped.shape[0], cropped.shape[1])==target_label
 	ym, xm = numpy.nonzero(mask)
