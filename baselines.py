@@ -15,6 +15,7 @@ method = 'threshold'
 #method = 'kmeans'
 dataset = 'beach'
 save_frame = -1 #98, 130
+min_cluster = 10
 for i in range(len(sys.argv)-1):
 	if sys.argv[i]=='--method':
 		method = sys.argv[i+1]
@@ -22,12 +23,18 @@ for i in range(len(sys.argv)-1):
 		dataset = sys.argv[i+1]
 	elif sys.argv[i]=='--save_frame':
 		save_frame = int(sys.argv[i+1])
+	elif sys.argv[i]=='--min_cluster':
+		min_cluster = int(sys.argv[i+1])
 	
 backSub = cv2.createBackgroundSubtractorMOG2()
 #backSub = cv2.createBackgroundSubtractorKNN()
 image_id = 1
 fig = plt.figure(figsize=(20,30))
-xbound, ybound, imscale = [int(t) for t in open('dataset/%s/params.txt'%dataset).readline().split()]
+try:
+    xbound, ybound, imwidth, imheight = [int(t) for t in open('dataset/%s/params.txt'%dataset).readline().split()]
+except ValueError:
+    xbound, ybound, imscale = [int(t) for t in open('dataset/%s/params.txt'%dataset).readline().split()]
+    imwidth = imheight = imscale
 num_samples = len(glob.glob('dataset/%s/label*.png'%dataset))
 num_test = num_samples - int(num_samples*0.8)
 test_idx = num_samples - num_test + 1
@@ -46,16 +53,17 @@ while True:
 		image_id += 1
 		continue
 	image_filename = 'dataset/%s/%d.png' % (dataset,image_id)
-	if os.path.exists(image_filename):
+	label_filename = 'dataset/%s/label%d.png'%(dataset,image_id)
+	if os.path.exists(image_filename) and os.path.exists(label_filename):
 		I = numpy.array(Image.open(image_filename))
 		if len(I.shape)>2:
 			I = numpy.mean(I, axis=2)
 	else:
 		break
-	gt = numpy.array(Image.open('dataset/%s/label%d.png'%(dataset,image_id)))
+	gt = numpy.array(Image.open(label_filename))
 	gt = gt > 0
 	dt = numpy.zeros(I.shape, dtype=bool)
-	image_np = I[ybound:ybound+imscale, xbound:xbound+imscale]
+	image_np = I[ybound:ybound+imheight, xbound:xbound+imwidth]
 	t1 = time.time()
 	if method=='threshold':
 		Isub = image_np.astype(numpy.uint8)
@@ -137,14 +145,14 @@ while True:
 			xm += xl
 			mask[ym,xm] = True
 	t2 = time.time()
-	dt[ybound:ybound+imscale,xbound:xbound+imscale] = mask
+	dt[ybound:ybound+imheight,xbound:xbound+imwidth] = mask
 	err_viz = numpy.zeros((image_np.shape[0], image_np.shape[1], 3), dtype=numpy.uint8)
 	if image_id < test_idx:
 		image_id += 1
 		continue
 
-	gt_sub = gt[ybound:ybound+imscale, xbound:xbound+imscale] > 0
-	dt_sub = dt[ybound:ybound+imscale, xbound:xbound+imscale]	
+	gt_sub = gt[ybound:ybound+imheight, xbound:xbound+imwidth] > 0
+	dt_sub = dt[ybound:ybound+imheight, xbound:xbound+imwidth]	
 	current_tp = numpy.logical_and(gt_sub,dt_sub)
 	current_fp = numpy.logical_and(numpy.logical_not(gt_sub),dt_sub)
 	current_fn = numpy.logical_and(gt_sub,numpy.logical_not(dt_sub))
@@ -164,15 +172,14 @@ while True:
 	ret, dt_com = cv2.connectedComponents(dt_sub.astype(numpy.uint8))
 	num_gt = 0
 	num_dt = 0
-	min_cluster_size = 10 if dataset=='beach' or dataset=='shore' else 200
 	for i in range(1, gt_com.max()+1):
-		if numpy.sum(gt_com==i) > min_cluster_size:
+		if numpy.sum(gt_com==i) > min_cluster:
 			num_gt += 1
 			gt_com[gt_com==i] = num_gt
 		else:
 			gt_com[gt_com==i] = 0
 	for i in range(1, dt_com.max()+1):
-		if numpy.sum(dt_com==i) > min_cluster_size:
+		if numpy.sum(dt_com==i) > min_cluster:
 			num_dt += 1
 			dt_com[dt_com==i] = num_dt
 		else:
@@ -226,7 +233,7 @@ while True:
 		dt_viz[y1:y2, x2, :] = [255,255,0]
 
 	comp_time.append(t2 - t1)
-#	print('Image #%d Precision:%.2f/%.2f Recall:%.2f/%.2f (%.2fs)'%(image_id, prc,obj_prc,rcl,obj_rcl, t2-t1))
+	print('Image #%d Precision:%.2f/%.2f Recall:%.2f/%.2f (%.2fs)'%(image_id, prc,obj_prc,rcl,obj_rcl, t2-t1))
 
 	if image_id == save_frame:
 		Image.fromarray(image_np.astype(numpy.uint8), mode='L').save('results/original_%d.png'%save_frame)

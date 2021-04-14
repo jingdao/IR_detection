@@ -53,7 +53,7 @@ Result images will be displayed if the "--viz" flag is used, otherwise only the 
 Use the "--save_frame" flag to save results from a specific frame to the "results" folder.
 
 ```
-python baselines.py --dataset university --method threshold --viz --save_frame 100
+python baselines.py --dataset university --method threshold --viz --save_frame 100 --min_cluster 200
 ```
 
 ## Convolutional Neural Network
@@ -67,7 +67,7 @@ Before doing this, make sure to run "baselines.py" with "--method backSub" to sa
 Otherwise, only the first component is used. 
 
 ```
-python process_record.py --dataset university
+python process_record.py --dataset university --imsize 385
 ```
 
 Train the network using "train.py" (150 epochs). The trained model will be saved in "dataset/myfolder/model.ckpt".
@@ -81,7 +81,7 @@ the confidence level above which a pixel will be considered a positive detection
 Result images will be displayed if the "--viz" flag is used, otherwise only the accuracy is computed.
 
 ```
-python test.py --dataset university --detection_threshold 0.99 --viz
+python test.py --dataset university --imsize 385 --detection_threshold 0.99 --viz --min_cluster 200
 ```
 
 ## Dependencies
