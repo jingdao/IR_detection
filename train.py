@@ -9,6 +9,7 @@ import argparse
 import albumentations as A
 import matplotlib.pyplot as plt
 import sys
+import cv2
 
 parser = argparse.ArgumentParser()
 envarg = parser.add_argument_group('Training params')
@@ -48,6 +49,29 @@ f.close()
 print('train',train_img.shape)
 print('test',test_img.shape)
 imchannels = train_img.shape[-1]
+
+def synthesize_object(image, mask):
+    new_image = image.copy()
+    new_mask = mask.copy()
+    ret, com = cv2.connectedComponents(mask.astype(numpy.uint8))
+    for i in range(1, com.max()):
+        my, mx = numpy.nonzero(com == i)
+        dy = numpy.random.randint(max(-my.min(), -50), min(image.shape[0] - my.max(), 50))
+        dx = numpy.random.randint(max(-mx.min(), -50), min(image.shape[1] - mx.max(), 50))
+        my += dy
+        mx += dx
+        new_image[my, mx] = image[com == i]
+        new_mask[my, mx] = mask[com == i]
+#    plt.subplot(2,2,1)
+#    plt.imshow(image)
+#    plt.subplot(2,2,2)
+#    plt.imshow(mask>0, cmap='gray')
+#    plt.subplot(2,2,3)
+#    plt.imshow(new_image)
+#    plt.subplot(2,2,4)
+#    plt.imshow(new_mask>0, cmap='gray')
+#    plt.show()
+    return new_image, new_mask
 
 class MyNet:
 	def __init__(self):
