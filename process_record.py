@@ -18,14 +18,18 @@ for i in range(len(sys.argv)):
     if sys.argv[i]=='--imsize':
         imsize = int(sys.argv[i+1])
 
-num_samples = len(glob.glob('dataset/%s/label*.png' % dataset))
-train_samples = set(range(int(0.8*num_samples)))
-test_samples = set(range(num_samples)) - train_samples
+all_samples = []
+filename_offset = 14 + len(dataset)
+for i in glob.glob('dataset/%s/label*.png' % dataset):
+    all_samples.append(int(i[filename_offset:-4]))
+num_samples = len(all_samples)
+num_train_samples = int(0.8*num_samples)
+all_samples = sorted(all_samples)
+train_samples = set(all_samples[:num_train_samples])
+test_samples = set(all_samples[num_train_samples:])
 if dataset == 'combined':
     train_samples -= set([0,96])
     test_samples -= set([224,248])
-else:
-    train_samples -= set([0])
 print('train',train_samples)
 print('test',test_samples)
 try:
@@ -42,7 +46,7 @@ train_count = 0
 test_count = 0
 previous_img = None
 
-for i in range(1,num_samples+1):
+for i in all_samples:
     image_np = numpy.array(Image.open('dataset/%s/%d.png'%(dataset,i)))
     image_np = image_np[ybound:ybound+imheight,xbound:xbound+imwidth]
     image_gray = image_np.mean(axis=2)
@@ -69,11 +73,11 @@ for i in range(1,num_samples+1):
         annotation = numpy.array(Image.fromarray(annotation).resize((imsize, imsize), resample=Image.BILINEAR))
     annotation = numpy.array(annotation > 0, dtype=numpy.uint8)
     print(i,image_np.shape,image_np.dtype)
-    if i-1 in train_samples:
+    if i in train_samples:
         train_img[train_count] = image_np
         train_labels[train_count] = annotation
         train_count += 1
-    elif i-1 in test_samples:
+    elif i in test_samples:
         test_img[test_count] = image_np
         test_labels[test_count] = annotation
         test_count += 1
