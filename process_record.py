@@ -3,11 +3,14 @@ from PIL import Image
 import h5py
 import glob
 import sys
+import random
 
 dataset = 'beach'
 use_history = False
 use_rgb = False
 imsize = None
+shuffle = False
+test_idx = None
 for i in range(len(sys.argv)):
     if sys.argv[i]=='--dataset':
         dataset = sys.argv[i+1]
@@ -17,6 +20,8 @@ for i in range(len(sys.argv)):
         use_rgb = True
     if sys.argv[i]=='--imsize':
         imsize = int(sys.argv[i+1])
+    if sys.argv[i]=='--test_idx':
+        test_idx = [int(i) for i in sys.argv[i+1].split(',')]
 
 all_samples = []
 filename_offset = 14 + len(dataset)
@@ -25,8 +30,12 @@ for i in glob.glob('dataset/%s/label*.png' % dataset):
 num_samples = len(all_samples)
 num_train_samples = int(0.8*num_samples)
 all_samples = sorted(all_samples)
-train_samples = set(all_samples[:num_train_samples])
-test_samples = set(all_samples[num_train_samples:])
+if test_idx is None:
+    train_samples = set(all_samples[:num_train_samples])
+    test_samples = set(all_samples[num_train_samples:])
+else:
+    test_samples = set(test_idx)
+    train_samples = set(all_samples) - test_samples
 if dataset == 'combined':
     train_samples -= set([0,96])
     test_samples -= set([224,248])

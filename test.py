@@ -25,13 +25,15 @@ envarg.add_argument('--starting_learning_rate', type=float, default=1e-2, help="
 envarg.add_argument("--multi_grid", type=list, default=[1,2,4], help="Spatial Pyramid Pooling rates")
 envarg.add_argument("--output_stride", type=int, default=4, help="Spatial Pyramid Pooling rates")
 envarg.add_argument("--gpu_id", type=int, default=0, help="Id of the GPU to be used")
-envarg.add_argument("--crop_size", type=int, default=385, help="Image Cropsize.")
+envarg.add_argument("--crop_width", type=int, default=385, help="Image Crop Width.")
+envarg.add_argument("--crop_height", type=int, default=385, help="Image Crop Height.")
 envarg.add_argument("--resnet_model", default="resnet_v2_0", choices=["resnet_v2_0","resnet_v2_50", "resnet_v2_101", "resnet_v2_152", "resnet_v2_200"], help="Resnet model to use as feature extractor. Choose one of: resnet_v2_50 or resnet_v2_101")
 envarg.add_argument("--current_best_val_loss", type=int, default=99999, help="Best validation loss value.")
 envarg.add_argument("--accumulated_validation_miou", type=int, default=0, help="Accumulated validation intersection over union.")
 trainarg = parser.add_argument_group('Training')
 trainarg.add_argument("--batch_size", type=int, default=1, help="Batch size for network train.")
 testarg = parser.add_argument_group('Testing')
+testarg.add_argument("--test_idx", type=str, help="Specify image indices for testing")
 testarg.add_argument("--detection_threshold", type=float, default=0.5, help="Confidence threshold for detection")
 testarg.add_argument("--imsize", type=int, help="Optional image size for rescaling during pre-processing")
 testarg.add_argument("--min_cluster", type=int, default=10, help="Minimum cluster size for detection")
@@ -59,9 +61,21 @@ except ValueError:
     xbound, ybound, imscale = [int(t) for t in open('dataset/%s/params.txt'%args.dataset).readline().split()]
     imwidth = imheight = imscale
 detection_threshold = args.detection_threshold
-num_samples = len(glob.glob('dataset/%s/label*.png'%args.dataset))
-num_test = num_samples - int(num_samples*0.8)
-test_idx = num_samples - num_test + 1
+
+all_samples = []
+filename_offset = 14 + len(args.dataset)
+for i in glob.glob('dataset/%s/label*.png' % args.dataset):
+    all_samples.append(int(i[filename_offset:-4]))
+num_samples = len(all_samples)
+num_train_samples = int(0.8*num_samples)
+all_samples = sorted(all_samples)
+if args.test_idx is None:
+    train_samples = set(all_samples[:num_train_samples])
+    test_samples = set(all_samples[num_train_samples:])
+else:
+    test_samples = set([int(i) for i in args.test_idx.split(',')])
+    train_samples = set(all_samples) - test_samples
+
 print('Using detection_threshold:%.2f'%detection_threshold)
 
 class MyNet:
@@ -127,7 +141,7 @@ for image_idx in range(1,num_samples+1):
             diff_img = ((image_gray - previous_img)/2 + 128).astype(numpy.uint8)
             backSub_img = numpy.array(Image.open('dataset/%s/backSub/%d.png'%(args.dataset,image_idx))).mean(axis=2)
         previous_img = image_gray
-    if image_idx < test_idx:
+    if not image_idx in test_samples:
         continue
     if args.use_history:
         image_np = numpy.dstack((image_gray, diff_img, backSub_img)).astype(numpy.uint8)
@@ -170,7 +184,8 @@ for image_idx in range(1,num_samples+1):
     num_gt = 0
     num_dt = 0
     for i in range(1, gt_com.max()+1):
-        if numpy.sum(gt_com==i) > args.min_cluster and numpy.sum(gt_com==i) < args.max_cluster:
+#        if numpy.sum(gt_com==i) > args.min_cluster and numpy.sum(gt_com==i) < args.max_cluster:
+        if True:
             num_gt += 1
             gt_com[gt_com==i] = num_gt
         else:

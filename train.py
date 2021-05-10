@@ -21,12 +21,15 @@ envarg.add_argument('--starting_learning_rate', type=float, default=1e-3, help="
 envarg.add_argument("--multi_grid", type=list, default=[1,2,4], help="Spatial Pyramid Pooling rates")
 envarg.add_argument("--output_stride", type=int, default=4, help="Spatial Pyramid Pooling rates")
 envarg.add_argument("--gpu_id", type=int, default=0, help="Id of the GPU to be used")
-envarg.add_argument("--crop_size", type=int, default=385, help="Image Cropsize.")
+envarg.add_argument("--crop_width", type=int, default=385, help="Image Crop Width.")
+envarg.add_argument("--crop_height", type=int, default=385, help="Image Crop Height.")
 envarg.add_argument("--resnet_model", default="resnet_v2_0", choices=["resnet_v2_0", "resnet_v2_50", "resnet_v2_101", "resnet_v2_152", "resnet_v2_200"], help="Resnet model to use as feature extractor. Choose one of: resnet_v2_50 or resnet_v2_101")
 envarg.add_argument("--current_best_val_loss", type=int, default=99999, help="Best validation loss value.")
 envarg.add_argument("--accumulated_validation_miou", type=int, default=0, help="Accumulated validation intersection over union.")
 trainarg = parser.add_argument_group('Training')
 trainarg.add_argument("--batch_size", type=int, default=5, help="Batch size for network train.")
+trainarg.add_argument("--max_epochs", type=int, default=150, help="Max epochs for network train.")
+trainarg.add_argument("--synth_prob", type=float, default=0.0, help="Probability of synthesizing additional foreground objects")
 trainarg.add_argument("--dataset", type=str, default="beach", help="Dataset directory name")
 trainarg.add_argument("--use_history", help="use historical data input", action="store_true")
 trainarg.add_argument("--use_original", help="use original network architecture", action="store_true")
@@ -76,8 +79,8 @@ def synthesize_object(image, mask):
 class MyNet:
 	def __init__(self):
 		self.is_training_pl = tf.placeholder(tf.bool, shape=[])
-		self.input_pl = tf.placeholder(tf.float32, shape=[args.batch_size,args.crop_size,args.crop_size,imchannels])
-		self.label_pl = tf.placeholder(tf.int32, shape=[args.batch_size,args.crop_size,args.crop_size])
+		self.input_pl = tf.placeholder(tf.float32, shape=[args.batch_size,args.crop_height,args.crop_width,imchannels])
+		self.label_pl = tf.placeholder(tf.int32, shape=[args.batch_size,args.crop_height,args.crop_width])
 		logits_tf = tf.cond(self.is_training_pl, true_fn= lambda: network.deeplab_v3(self.input_pl, args, is_training=True, reuse=False),
                     false_fn=lambda: network.deeplab_v3(self.input_pl, args, is_training=False, reuse=True))
 
@@ -87,8 +90,8 @@ class MyNet:
 		self.val_precision = tf.cast(val_tp,tf.float32) / tf.cast(val_tp + val_fp + 1, tf.float32)
 		self.val_recall = tf.cast(val_tp,tf.float32) / tf.cast(val_tp + val_fn + 1, tf.float32)
 
-		logits_reshaped = tf.reshape(logits_tf, (args.batch_size*args.crop_size*args.crop_size,2))
-		labels_reshaped = tf.reshape(self.label_pl, [args.batch_size*args.crop_size*args.crop_size])
+		logits_reshaped = tf.reshape(logits_tf, (args.batch_size*args.crop_height*args.crop_width,2))
+		labels_reshaped = tf.reshape(self.label_pl, [args.batch_size*args.crop_height*args.crop_width])
 		pos_mask = tf.where(tf.cast(labels_reshaped, tf.bool))
 		neg_mask = tf.where(tf.cast(1 - labels_reshaped, tf.bool))
 		self.pos_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tf.gather_nd(logits_reshaped, pos_mask), labels=tf.gather_nd(labels_reshaped, pos_mask)))
@@ -115,9 +118,9 @@ net = MyNet()
 
 # define data augmentations
 transform = A.Compose([
-    A.RandomCrop(width=args.crop_size, height=args.crop_size),
-    A.HorizontalFlip(p=0.5),
-    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+    A.RandomCrop(width=args.crop_width, height=args.crop_height),
+#    A.HorizontalFlip(p=0.5),
+#    A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
 ])
 
 saver = tf.train.Saver()
@@ -131,10 +134,10 @@ else:
 
 init = tf.global_variables_initializer()
 sess.run(init, {})
-for epoch in range(150):
+for epoch in range(args.max_epochs):
     idx = numpy.arange(len(train_labels))
     numpy.random.shuffle(idx)
-    input_points = numpy.zeros((args.batch_size, args.crop_size, args.crop_size, 3))
+    input_points = numpy.zeros((args.batch_size, args.crop_height, args.crop_width, 3))
 
     loss_arr = []
     pl_arr = []
@@ -148,12 +151,14 @@ for epoch in range(150):
         end_idx = (batch_id + 1) * args.batch_size
         input_images = train_img[idx[start_idx:end_idx], :, :, :]
         input_labels = train_labels[idx[start_idx:end_idx], :, :]
-        augmented_images = numpy.zeros((args.batch_size, args.crop_size, args.crop_size, 3), dtype=numpy.float32)
-        augmented_labels = numpy.zeros((args.batch_size, args.crop_size, args.crop_size), dtype=numpy.int32)
+        augmented_images = numpy.zeros((args.batch_size, args.crop_height, args.crop_width, 3), dtype=numpy.float32)
+        augmented_labels = numpy.zeros((args.batch_size, args.crop_height, args.crop_width), dtype=numpy.int32)
         for i in range(args.batch_size):
             augmented = transform(image=input_images[i], mask=input_labels[i])
             augmented_images[i] = augmented['image']
             augmented_labels[i] = augmented['mask']
+            if numpy.random.random() < args.synth_prob:
+                augmented_images[i], augmented_labels[i] = synthesize_object(augmented_images[i], augmented_labels[i])
             if args.viz_augmentation:
                 fontsize = 18
                 f, ax = plt.subplots(2, 2, figsize=(8, 8))
