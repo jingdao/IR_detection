@@ -81,7 +81,13 @@ the confidence level above which a pixel will be considered a positive detection
 Result images will be displayed if the "--viz" flag is used, otherwise only the accuracy is computed.
 
 ```
-python test.py --dataset university --imsize 385 --detection_threshold 0.99 --viz --min_cluster 200
+python test.py --dataset university --imsize 385 --detection_threshold 0.99 --viz --min_cluster 200 --save
+```
+
+Evaluate the accuracy of a trained model. The input folder should contain the model checkpoint, label images and prediction images.
+
+```
+python evaluate.py dataset/university
 ```
 
 ## Dependencies

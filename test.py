@@ -43,6 +43,7 @@ testarg.add_argument("--dataset", type=str, default="beach", help="Dataset direc
 testarg.add_argument("--viz", help="Visualize results", action="store_true")
 testarg.add_argument("--use_history", help="use historical data input", action="store_true")
 testarg.add_argument("--use_original", help="use original network architecture", action="store_true")
+testarg.add_argument("--save", help="Save results", action="store_true")
 testarg.add_argument("--save_frame", type=int, default=-1, help="Frame ID to save")
 args = parser.parse_args()
 
@@ -52,7 +53,6 @@ fn = 0
 obj_tp = 0
 obj_fp = 0
 obj_fn = 0
-viz = args.viz
 zoomed_in = True
 fig = plt.figure(figsize=(20,30))
 try:
@@ -253,7 +253,9 @@ for image_idx in range(1,num_samples+1):
         Image.fromarray(gt_viz, mode='RGB').save('results/ground_truth_%d.png'%args.save_frame)
         print('save_frame',args.save_frame)
         sys.exit(1)
-    if viz:
+    if args.save:
+        Image.fromarray(predicted).save('dataset/%s/prediction%d.png'%(args.dataset, image_idx))
+    if args.viz:
         plt.clf()
         plt.subplot(2,2,1)
         if args.use_rgb:
