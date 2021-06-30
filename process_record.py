@@ -4,11 +4,13 @@ import h5py
 import glob
 import sys
 import random
+import matplotlib.pyplot as plt
 
 dataset = 'beach'
 use_history = False
 use_rgb = False
-imsize = None
+scale_height = None
+scale_width = None
 shuffle = False
 test_idx = None
 for i in range(len(sys.argv)):
@@ -18,8 +20,10 @@ for i in range(len(sys.argv)):
         use_history = True
     if sys.argv[i]=='--use_rgb':
         use_rgb = True
-    if sys.argv[i]=='--imsize':
-        imsize = int(sys.argv[i+1])
+    if sys.argv[i]=='--scale_height':
+        scale_height = int(sys.argv[i+1])
+    if sys.argv[i]=='--scale_width':
+        scale_width = int(sys.argv[i+1])
     if sys.argv[i]=='--test_idx':
         test_idx = [int(i) for i in sys.argv[i+1].split(',')]
 
@@ -47,16 +51,24 @@ except ValueError:
     xbound, ybound, imscale = [int(t) for t in open('dataset/%s/params.txt'%dataset).readline().split()]
     imwidth = imheight = imscale
 pos_idx = set()
-train_img = numpy.zeros((len(train_samples), imheight, imwidth, 3), dtype=numpy.uint8)
-train_labels = numpy.zeros((len(train_samples), imheight, imwidth), dtype=numpy.uint8)
-test_img = numpy.zeros((len(test_samples), imheight, imwidth, 3), dtype=numpy.uint8)
-test_labels = numpy.zeros((len(test_samples), imheight, imwidth), dtype=numpy.uint8)
+if scale_height is not None and scale_width is not None:
+    train_img = numpy.zeros((len(train_samples), scale_height, scale_width, 3), dtype=numpy.uint8)
+    train_labels = numpy.zeros((len(train_samples), scale_height, scale_width), dtype=numpy.uint8)
+    test_img = numpy.zeros((len(test_samples), scale_height, scale_width, 3), dtype=numpy.uint8)
+    test_labels = numpy.zeros((len(test_samples), scale_height, scale_width), dtype=numpy.uint8)
+else:
+    train_img = numpy.zeros((len(train_samples), imheight, imwidth, 3), dtype=numpy.uint8)
+    train_labels = numpy.zeros((len(train_samples), imheight, imwidth), dtype=numpy.uint8)
+    test_img = numpy.zeros((len(test_samples), imheight, imwidth, 3), dtype=numpy.uint8)
+    test_labels = numpy.zeros((len(test_samples), imheight, imwidth), dtype=numpy.uint8)
 train_count = 0
 test_count = 0
 previous_img = None
 
 for i in all_samples:
     image_np = numpy.array(Image.open('dataset/%s/%d.png'%(dataset,i)))
+    if image_np.shape[2] == 4:
+        image_np = image_np[:, :, :3]
     image_np = image_np[ybound:ybound+imheight,xbound:xbound+imwidth]
     image_gray = image_np.mean(axis=2)
     if previous_img is None:
@@ -77,9 +89,9 @@ for i in all_samples:
     for p in numpy.array(numpy.nonzero(annotation)).T:
         pos_idx.add(tuple(p))
     annotation = annotation[ybound:ybound+imheight,xbound:xbound+imwidth]
-    if imsize is not None and (imwidth!=imsize or imheight!=imsize):
-        image_np = numpy.array(Image.fromarray(image_np).resize((imsize, imsize), resample=Image.BILINEAR))
-        annotation = numpy.array(Image.fromarray(annotation).resize((imsize, imsize), resample=Image.BILINEAR))
+    if scale_height is not None and scale_width is not None and (imwidth!=scale_width or imheight!=scale_height):
+        image_np = numpy.array(Image.fromarray(image_np).resize((scale_width, scale_height), resample=Image.BILINEAR))
+        annotation = numpy.array(Image.fromarray(annotation).resize((scale_width, scale_height), resample=Image.NEAREST))
     annotation = numpy.array(annotation > 0, dtype=numpy.uint8)
     print(i,image_np.shape,image_np.dtype)
     if i in train_samples:

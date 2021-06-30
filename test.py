@@ -35,7 +35,8 @@ trainarg.add_argument("--batch_size", type=int, default=1, help="Batch size for 
 testarg = parser.add_argument_group('Testing')
 testarg.add_argument("--test_idx", type=str, help="Specify image indices for testing")
 testarg.add_argument("--detection_threshold", type=float, default=0.5, help="Confidence threshold for detection")
-testarg.add_argument("--imsize", type=int, help="Optional image size for rescaling during pre-processing")
+testarg.add_argument("--scale_width", type=int, help="Image Scale Width")
+testarg.add_argument("--scale_height", type=int, help="Image Scale Height")
 testarg.add_argument("--min_cluster", type=int, default=10, help="Minimum cluster size for detection")
 testarg.add_argument("--max_cluster", type=int, default=200, help="Maximum cluster size for detection")
 testarg.add_argument("--use_rgb", help="use RGB color images", action="store_true")
@@ -79,27 +80,35 @@ else:
 print('Using detection_threshold:%.2f'%detection_threshold)
 
 class MyNet:
-	def __init__(self):
-		self.input_pl = tf.placeholder(tf.float32, shape=[args.batch_size,imheight,imwidth,3])
-		self.label_pl = tf.placeholder(tf.int32, shape=[args.batch_size,imheight,imwidth])
-		self.logits_tf = network.deeplab_v3(self.input_pl, args, is_training=True, reuse=False)
+    def __init__(self):
+        if args.scale_height is not None and args.scale_width is not None:
+            self.input_pl = tf.placeholder(tf.float32, shape=[args.batch_size,args.scale_height,args.scale_width,3])
+            self.label_pl = tf.placeholder(tf.int32, shape=[args.batch_size,args.scale_height,args.scale_width])
+        else:
+            self.input_pl = tf.placeholder(tf.float32, shape=[args.batch_size,imheight,imwidth,3])
+            self.label_pl = tf.placeholder(tf.int32, shape=[args.batch_size,imheight,imwidth])
+        self.logits_tf = network.deeplab_v3(self.input_pl, args, is_training=True, reuse=False)
 
-		self.val_tp = tf.reduce_sum(tf.cast(tf.math.logical_and(tf.math.equal(tf.argmax(self.logits_tf, axis=-1), 1), tf.math.equal(self.label_pl, 1)),tf.int32))
-		self.val_fp = tf.reduce_sum(tf.cast(tf.math.logical_and(tf.math.equal(tf.argmax(self.logits_tf, axis=-1), 1), tf.math.equal(self.label_pl, 0)),tf.int32))
-		self.val_fn = tf.reduce_sum(tf.cast(tf.math.logical_and(tf.math.equal(tf.argmax(self.logits_tf, axis=-1), 0), tf.math.equal(self.label_pl, 1)),tf.int32))
-		self.val_precision = tf.cast(self.val_tp,tf.float32) / tf.cast(self.val_tp + self.val_fp + 1, tf.float32)
-		self.val_recall = tf.cast(self.val_tp,tf.float32) / tf.cast(self.val_tp + self.val_fn + 1, tf.float32)
+        self.val_tp = tf.reduce_sum(tf.cast(tf.math.logical_and(tf.math.equal(tf.argmax(self.logits_tf, axis=-1), 1), tf.math.equal(self.label_pl, 1)),tf.int32))
+        self.val_fp = tf.reduce_sum(tf.cast(tf.math.logical_and(tf.math.equal(tf.argmax(self.logits_tf, axis=-1), 1), tf.math.equal(self.label_pl, 0)),tf.int32))
+        self.val_fn = tf.reduce_sum(tf.cast(tf.math.logical_and(tf.math.equal(tf.argmax(self.logits_tf, axis=-1), 0), tf.math.equal(self.label_pl, 1)),tf.int32))
+        self.val_precision = tf.cast(self.val_tp,tf.float32) / tf.cast(self.val_tp + self.val_fp + 1, tf.float32)
+        self.val_recall = tf.cast(self.val_tp,tf.float32) / tf.cast(self.val_tp + self.val_fn + 1, tf.float32)
 
-		logits_reshaped = tf.reshape(self.logits_tf, (args.batch_size*imheight*imwidth,2))
-		labels_reshaped = tf.reshape(self.label_pl, [args.batch_size*imheight*imwidth])
-		pos_mask = tf.where(tf.cast(labels_reshaped, tf.bool))
-		neg_mask = tf.where(tf.cast(1 - labels_reshaped, tf.bool))
-		self.pos_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tf.gather_nd(logits_reshaped, pos_mask), labels=tf.gather_nd(labels_reshaped, pos_mask)))
-		self.neg_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tf.gather_nd(logits_reshaped, neg_mask), labels=tf.gather_nd(labels_reshaped, neg_mask)))
-		if args.use_original:
-			self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_reshaped, labels=labels_reshaped))
-		else:
-			self.loss = self.pos_loss + self.neg_loss
+        if args.scale_height is not None and args.scale_width is not None:
+            logits_reshaped = tf.reshape(self.logits_tf, (args.batch_size*args.scale_height*args.scale_width,2))
+            labels_reshaped = tf.reshape(self.label_pl, [args.batch_size*args.scale_height*args.scale_width])
+        else:
+            logits_reshaped = tf.reshape(self.logits_tf, (args.batch_size*imheight*imwidth,2))
+            labels_reshaped = tf.reshape(self.label_pl, [args.batch_size*imheight*imwidth])
+        pos_mask = tf.where(tf.cast(labels_reshaped, tf.bool))
+        neg_mask = tf.where(tf.cast(1 - labels_reshaped, tf.bool))
+        self.pos_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tf.gather_nd(logits_reshaped, pos_mask), labels=tf.gather_nd(labels_reshaped, pos_mask)))
+        self.neg_loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=tf.gather_nd(logits_reshaped, neg_mask), labels=tf.gather_nd(labels_reshaped, neg_mask)))
+        if args.use_original:
+            self.loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits_reshaped, labels=labels_reshaped))
+        else:
+            self.loss = self.pos_loss + self.neg_loss
 
 if args.use_original:
 	args.resnet_model = "resnet_v2_50"
@@ -121,8 +130,12 @@ saver = tf.train.Saver()
 saver.restore(sess, MODEL_PATH)
 print('Restored network from %s'%MODEL_PATH)
 
-input_images = numpy.zeros((args.batch_size, imheight, imwidth, 3), dtype=numpy.float32)
-input_labels = numpy.zeros((args.batch_size, imheight, imwidth), dtype=numpy.int32)
+if args.scale_height is not None and args.scale_width is not None:
+    input_images = numpy.zeros((args.batch_size, args.scale_height, args.scale_width, 3), dtype=numpy.float32)
+    input_labels = numpy.zeros((args.batch_size, args.scale_height, args.scale_width), dtype=numpy.int32)
+else:
+    input_images = numpy.zeros((args.batch_size, imheight, imwidth, 3), dtype=numpy.float32)
+    input_labels = numpy.zeros((args.batch_size, imheight, imwidth), dtype=numpy.int32)
 img_history = []
 ap_gt = []
 ap_dt = []
@@ -131,6 +144,8 @@ previous_img = None
 for image_idx in range(1,num_samples+1):
     t1 = time.time()
     original_image = numpy.array(Image.open('dataset/%s/%d.png'%(args.dataset,image_idx)))
+    if original_image.shape[2] == 4:
+        original_image = original_image[:, :, :3]
     image_np = original_image[ybound:ybound+imheight,xbound:xbound+imwidth]
     image_gray = image_np.mean(axis=2)
     if args.use_history:
@@ -150,13 +165,11 @@ for image_idx in range(1,num_samples+1):
     original_annotation = numpy.array(Image.open('dataset/%s/label%d.png'%(args.dataset,image_idx)))
     annotation = original_annotation[ybound:ybound+imheight,xbound:xbound+imwidth]
     annotation = numpy.array(annotation > 0, dtype=numpy.uint8)
-    if args.imsize is not None and (imwidth!=args.imsize or imheight!=args.imsize):
-        input_images[:] = numpy.array(Image.fromarray(image_np).resize((args.imsize, args.imsize), resample=Image.BILINEAR))
-        input_labels[:] = numpy.array(Image.fromarray(annotation).resize((args.imsize, args.imsize), resample=Image.BILINEAR))
-    else:
-        input_images[:] = image_np
-        input_labels[:] = annotation
-    viz_predicted = numpy.zeros(original_annotation.shape, dtype=bool)
+    if args.scale_height is not None and args.scale_width is not None and (imwidth!=args.scale_width or imheight!=args.scale_height):
+        image_np = numpy.array(Image.fromarray(image_np).resize((args.scale_width, args.scale_height), resample=Image.BILINEAR))
+        annotation = numpy.array(Image.fromarray(annotation).resize((args.scale_width, args.scale_height), resample=Image.NEAREST))
+    input_images[:] = image_np
+    input_labels[:] = annotation
 
     result, ls, pl, nl, prc, rcl, vtp, vfp, vfn = sess.run(
         [net.logits_tf, net.loss, net.pos_loss, net.neg_loss, net.val_precision, net.val_recall, net.val_tp, net.val_fp, net.val_fn],
@@ -164,12 +177,9 @@ for image_idx in range(1,num_samples+1):
     t2 = time.time()
 #    print('Loss %.2f(%.2f+%.2f) tp:%d fp:%d fn:%d prc:%.2f rcl:%.2f'%(ls,pl,nl,vtp,vfp,vfn,prc,rcl))
     predicted_softmax = scipy.special.softmax(result[0,:,:,:],axis=-1)[:,:,1]
-    if args.imsize is not None and (imwidth!=args.imsize or imheight!=args.imsize):
-        predicted_softmax = numpy.array(Image.fromarray(predicted_softmax, mode='F').resize((imheight, imwidth), resample=Image.BILINEAR))
     ap_dt.extend(predicted_softmax.flatten())
     ap_gt.extend(annotation.flatten())
     predicted = predicted_softmax > detection_threshold
-    viz_predicted[ybound:ybound+imheight, xbound:xbound+imwidth] = predicted
     current_tp = numpy.sum(numpy.logical_and(annotation==1, predicted==1))
     current_fp = numpy.sum(numpy.logical_and(annotation==0, predicted==1))
     current_fn = numpy.sum(numpy.logical_and(annotation==1, predicted==0))
@@ -181,6 +191,7 @@ for image_idx in range(1,num_samples+1):
 
     ret, dt_com = cv2.connectedComponents(predicted.astype(numpy.uint8))
     ret, gt_com = cv2.connectedComponents(annotation.astype(numpy.uint8))
+    print('connectedComponents %d dt %d gt' % (dt_com.max(), gt_com.max()))
     num_gt = 0
     num_dt = 0
     for i in range(1, gt_com.max()+1):
@@ -266,7 +277,7 @@ for image_idx in range(1,num_samples+1):
         plt.subplot(2,2,2)
         plt.imshow(annotation if zoomed_in else original_annotation, cmap='gray')
         plt.subplot(2,2,3)
-        plt.imshow(dt_viz if zoomed_in else viz_predicted)
+        plt.imshow(dt_viz)
         plt.subplot(2,2,4)
         plt.imshow(gt_viz)
         plt.show()
